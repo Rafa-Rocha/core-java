@@ -30,10 +30,8 @@ public class EventHandlerACF extends AccessControlFilter {
 
     String serverCN = (String) configuration.getProperty("server_common_name");
     String[] serverFields = serverCN.split("\\.", 2);
+
     String[] clientFields = clientCN.split("\\.", 2);
-    if (requestTarget.contains("mgmt")) {
-      return clientCN.equalsIgnoreCase("sysop." + serverFields[1]);
-    }
     if (requestTarget.contains("publish")) {
       PublishEvent event = Utility.fromJson(requestJson, PublishEvent.class);
       if (!clientFields[0].equalsIgnoreCase(event.getSource().getSystemName())) {

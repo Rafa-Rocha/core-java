@@ -39,16 +39,17 @@ import org.apache.log4j.PropertyConfigurator;
 import org.glassfish.grizzly.http.server.CLStaticHttpHandler;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.HttpServer;
+import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.ssl.SSLContextConfigurator;
 import org.glassfish.grizzly.ssl.SSLContextConfigurator.GenericStoreException;
+import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
 public abstract class ArrowheadMain {
 
-  public static final List<String> dbFields = Collections
-      .unmodifiableList(Arrays.asList("db_user", "db_password", "db_address"));
+  public static final List<String> dbFields = Collections.unmodifiableList(Arrays.asList("db_user", "db_password", "db_address"));
   public static final List<String> certFields = Collections
       .unmodifiableList(Arrays.asList("keystore", "keystorepass", "keypass", "truststore", "truststorepass"));
   public static final Map<String, String> secureServerMetadata = Collections.singletonMap("security", "certificate");
@@ -66,7 +67,6 @@ public abstract class ArrowheadMain {
   private static final Logger log = Logger.getLogger(ArrowheadMain.class.getName());
 
   {
-    DatabaseManager.init();
     PropertyConfigurator.configure(props);
   }
 
@@ -74,6 +74,7 @@ public abstract class ArrowheadMain {
     System.out.println("Working directory: " + System.getProperty("user.dir"));
     packages = addSwaggerToPackages(packages);
     this.coreSystem = coreSystem;
+    DatabaseManager.init();
 
     boolean isSecure = false;
     //Read in command line arguments
@@ -115,8 +116,7 @@ public abstract class ArrowheadMain {
     if (!coreSystem.equals(CoreSystem.SERVICE_REGISTRY_DNS) && !coreSystem.equals(CoreSystem.SERVICE_REGISTRY_SQL)) {
       String srAddress = props.getProperty("sr_address", "0.0.0.0");
       int srPort = isSecure ? props.getIntProperty("sr_secure_port", CoreSystem.SERVICE_REGISTRY_SQL.getSecurePort())
-                            : props
-                       .getIntProperty("sr_insecure_port", CoreSystem.SERVICE_REGISTRY_SQL.getInsecurePort());
+                            : props.getIntProperty("sr_insecure_port", CoreSystem.SERVICE_REGISTRY_SQL.getInsecurePort());
       srBaseUri = Utility.getUri(srAddress, srPort, "serviceregistry", isSecure, true);
       Utility.setServiceRegistryUri(srBaseUri);
       useSRService(true);
@@ -160,8 +160,8 @@ public abstract class ArrowheadMain {
       log.info("Started server at: " + baseUri);
       System.out.println("Started insecure server at: " + baseUri);
     } catch (IOException | ProcessingException e) {
-      throw new ServiceConfigurationError(
-          "Make sure you gave a valid address in the config file! (Assignable to this JVM and not in use already)", e);
+      throw new ServiceConfigurationError("Make sure you gave a valid address in the config file! (Assignable to this JVM and not in use already)",
+                                          e);
     }
   }
 
@@ -199,25 +199,23 @@ public abstract class ArrowheadMain {
     if (!SecurityUtils.isKeyStoreCNArrowheadValid(serverCN)) {
       log.fatal("Server CN is not compliant with the Arrowhead cert structure");
       throw new AuthException(
-          "Server CN ( " + serverCN + ") is not compliant with the Arrowhead cert structure, since it does not have 5 "
-              + "parts, or does not end with" + " \"arrowhead.eu\"");
+          "Server CN ( " + serverCN + ") is not compliant with the Arrowhead cert structure, since it does not have 5 parts, or does not end with"
+              + " \"arrowhead.eu\"");
     }
     log.info("Certificate of the secure server: " + serverCN);
     config.property("server_common_name", serverCN);
 
     URI uri = UriBuilder.fromUri(baseUri).build();
     try {
-      server = GrizzlyHttpServerFactory.createHttpServer(uri, config, true,
-                                                         new SSLEngineConfigurator(sslCon).setClientMode(false)
-                                                                                          .setNeedClientAuth(true),
-                                                         false);
+      server = GrizzlyHttpServerFactory
+          .createHttpServer(uri, config, true, new SSLEngineConfigurator(sslCon).setClientMode(false).setNeedClientAuth(true), false);
       configureServer(server);
       server.start();
       log.info("Started server at: " + baseUri);
       System.out.println("Started secure server at: " + baseUri);
     } catch (IOException | ProcessingException e) {
-      throw new ServiceConfigurationError(
-          "Make sure you gave a valid address in the config file! (Assignable to this JVM and not in use already)", e);
+      throw new ServiceConfigurationError("Make sure you gave a valid address in the config file! (Assignable to this JVM and not in use already)",
+                                          e);
     }
   }
 
@@ -227,6 +225,16 @@ public abstract class ArrowheadMain {
     server.getServerConfiguration().addHttpHandler(httpHandler, "/api");
     //Allow message payload for GET and DELETE requests - ONLY to provide custom error message for them
     server.getServerConfiguration().setAllowPayloadForUndefinedHttpMethods(true);
+    
+    int threadPoolSize = props.getIntProperty("thread_pool_size", 0);
+    if (threadPoolSize != 0) {
+    	// Create the thread pool configuration 
+        NetworkListener listener = server.getListener("grizzly");
+        ThreadPoolConfig threadPoolConfig = listener.getTransport().getWorkerThreadPoolConfig();
+        // Reconfigure the thread pool 
+        threadPoolConfig.setCorePoolSize(threadPoolSize); 
+        threadPoolConfig.setMaxPoolSize(threadPoolSize); 
+    }
   }
 
   private void shutdown() {
@@ -242,15 +250,13 @@ public abstract class ArrowheadMain {
 
   private void useSRService(boolean registering) {
     //Preparing the payload
-    final URI uri = UriBuilder.fromUri(baseUri).build();
-    final boolean isSecure = uri.getScheme().equals("https");
-    final String interfaceName = isSecure ? "HTTP-SECURE-JSON" : "HTTP-INSECURE-JSON";
-    final ArrowheadSystem provider = new ArrowheadSystem(coreSystem.name(), uri.getHost(), uri.getPort(),
-                                                         base64PublicKey);
+    URI uri = UriBuilder.fromUri(baseUri).build();
+    boolean isSecure = uri.getScheme().equals("https");
+    ArrowheadSystem provider = new ArrowheadSystem(coreSystem.name(), uri.getHost(), uri.getPort(), base64PublicKey);
 
     for (CoreSystemService service : coreSystem.getServices()) {
-      ArrowheadService providedService = new ArrowheadService(Utility.createSD(service.getServiceDef(), isSecure),
-                                                              Collections.singleton(interfaceName), null);
+      ArrowheadService providedService = new ArrowheadService(Utility.createSD(service.getServiceDef(), isSecure), Collections.singleton("JSON"),
+                                                              null);
       if (isSecure) {
         providedService.setServiceMetadata(ArrowheadMain.secureServerMetadata);
       }
@@ -264,9 +270,9 @@ public abstract class ArrowheadMain {
             Utility.sendRequest(UriBuilder.fromUri(srBaseUri).path("remove").build().toString(), "PUT", srEntry);
             Utility.sendRequest(UriBuilder.fromUri(srBaseUri).path("register").build().toString(), "POST", srEntry);
           } else if (e.getExceptionType() == ExceptionType.UNAVAILABLE) {
-            System.out.println("Service Registry is unavailable at the moment, retrying in 15 seconds...");
+            System.out.println("Service Registry is unavailable at the moment, retrying in 10 seconds...");
             try {
-              Thread.sleep(15000);
+              Thread.sleep(10000);
               if (registeringTries == 3) {
                 throw e;
               } else {

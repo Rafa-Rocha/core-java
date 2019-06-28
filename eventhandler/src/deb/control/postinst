@@ -28,6 +28,10 @@ case "$1" in
         SYSTEM_DIR="${AH_SYSTEMS_DIR}/${SYSTEM_NAME}"
 
         echo "Configuring MySQL database..." >&2
+        ah_db_logs
+        ah_db_arrowhead_system
+        mysql -u root < /usr/share/arrowhead/db/create_event_handler_db_empty.sql
+        ah_db_hibernate_sequence
         ah_db_user
 
         if [ ! -d "${SYSTEM_DIR}" ]; then
@@ -89,7 +93,7 @@ log4j.appender.DB.URL=jdbc:mysql://127.0.0.1:3306/arrowhead
 log4j.appender.DB.user=arrowhead
 log4j.appender.DB.password=${AH_PASS_DB}
 # Set the SQL statement to be executed.
-log4j.appender.DB.sql=INSERT INTO logs(id, date, origin, level, message) VALUES(DEFAULT,'%d{yyyy-MM-dd HH:mm:ss}','%C','%p','%m')
+log4j.appender.DB.sql=INSERT INTO logs VALUES(DEFAULT,'%d{yyyy-MM-dd HH:mm:ss}','%C','%p','%m')
 # Define the layout for file appender
 log4j.appender.DB.layout=org.apache.log4j.PatternLayout
 # Disable Hibernate verbose logging

@@ -24,10 +24,13 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.log4j.Logger;
+import org.glassfish.jersey.media.sse.EventOutput;
+import org.glassfish.jersey.media.sse.SseFeature;
 
 /**
  * This is the REST resource for the Event Handler Core System.
@@ -45,7 +48,7 @@ public class EventHandlerResource {
     return "This is the Event Handler Arrowhead Core System.";
   }
 
-  @POST
+  /*@POST
   @Path("publish")
   public Response publishEvent(@Valid PublishEvent eventPublished, @Context ContainerRequestContext requestContext) {
     if (eventPublished.getEvent().getTimestamp() == null) {
@@ -56,8 +59,7 @@ public class EventHandlerResource {
         throw new BadPayloadException(
             "This event is too old to publish. Maximum allowed delay before publishing the event: " + EventHandlerMain.EVENT_PUBLISHING_TOLERANCE);
       }
-      if (eventPublished.getEvent().getTimestamp()
-                        .isAfter(ZonedDateTime.now().plusMinutes(EventHandlerMain.EVENT_PUBLISHING_TOLERANCE))) {
+      if (eventPublished.getEvent().getTimestamp().isAfter(ZonedDateTime.now().plusMinutes(EventHandlerMain.EVENT_PUBLISHING_TOLERANCE))) {
         throw new BadPayloadException(
             "This event is too far in the future. Maximum allowed timestamp tolerance for events: " + EventHandlerMain.EVENT_PUBLISHING_TOLERANCE);
       }
@@ -66,7 +68,7 @@ public class EventHandlerResource {
 
     /* First the event will be propagated to consumers, then the results will be sent back to the publisher, summarizing which consumers received the
        event without an error. */
-    CompletableFuture.supplyAsync(() -> EventHandlerService.propagateEvent(eventPublished)).thenAccept(map -> {
+    /*CompletableFuture.supplyAsync(() -> EventHandlerService.propagateEvent(eventPublished)).thenAccept(map -> {
       if (eventPublished.getDeliveryCompleteUri() != null) {
         String callbackUrl = Utility
             .getUri(eventPublished.getSource().getAddress(), eventPublished.getSource().getPort(), eventPublished.getDeliveryCompleteUri(), isSecure,
@@ -78,12 +80,13 @@ public class EventHandlerResource {
           e.printStackTrace();
         }
       }
-    });
+    });*/
 
     //return OK while the event publishing happens in async
-    return Response.status(Status.OK).build();
-  }
+    /*return Response.status(Status.OK).build();
+  }*/
 
+  /*
   @POST
   @Path("subscription")
   public Response subscribe(@Valid EventFilter filter) {
@@ -96,6 +99,7 @@ public class EventHandlerResource {
       return Response.status(Status.NO_CONTENT.getStatusCode()).build();
     }
   }
+  */
 
   @DELETE
   @Path("subscription/type/{eventType}/consumer/{consumerName}")
@@ -111,6 +115,41 @@ public class EventHandlerResource {
     int statusCode = EventHandlerService.deleteEventFilter(filter.getEventType(), filter.getConsumer().getSystemName());
     log.info("deleteEventFilter returned with status code: " + statusCode);
     return Response.status(statusCode).build();
+  }
+  
+  
+  @GET
+  @Path("subscription")
+  @Produces(SseFeature.SERVER_SENT_EVENTS)
+  public EventOutput subscribe(@Context HttpHeaders httpheaders) {
+      String eventType = httpheaders.getHeaderString("eventtype");
+	  final EventOutput eventOutput = new EventOutput();
+      EventHandlerService.addSubscription(eventType, eventOutput);
+      return eventOutput;
+  }
+  
+  @POST
+  @Path("publish")
+  public Response publishEvent(@Valid PublishEvent eventPublished, @Context ContainerRequestContext requestContext) {
+    System.out.println("Received message " + eventPublished.getEvent().getPayload() + " at " + ZonedDateTime.now().toInstant().toEpochMilli());
+	 
+	if (eventPublished.getEvent().getTimestamp() == null) {
+      eventPublished.getEvent().setTimestamp(ZonedDateTime.now());
+    }
+    if (EventHandlerMain.EVENT_PUBLISHING_TOLERANCE > 0) {
+      if (eventPublished.getEvent().getTimestamp().isBefore(ZonedDateTime.now().minusMinutes(EventHandlerMain.EVENT_PUBLISHING_TOLERANCE))) {
+        throw new BadPayloadException(
+            "This event is too old to publish. Maximum allowed delay before publishing the event: " + EventHandlerMain.EVENT_PUBLISHING_TOLERANCE);
+      }
+      if (eventPublished.getEvent().getTimestamp().isAfter(ZonedDateTime.now().plusMinutes(EventHandlerMain.EVENT_PUBLISHING_TOLERANCE))) {
+        throw new BadPayloadException(
+            "This event is too far in the future. Maximum allowed timestamp tolerance for events: " + EventHandlerMain.EVENT_PUBLISHING_TOLERANCE);
+      }
+    }
+    
+    EventHandlerService.publishEvent(eventPublished);
+
+    return Response.status(Status.OK).build();
   }
 
 }

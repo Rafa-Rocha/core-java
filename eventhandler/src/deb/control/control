@@ -7,4 +7,4 @@ Maintainer: Thomas Pedersen <tp@cs.aau.dk>
 Homepage: http://www.arrowhead.eu
 Description: Arrowhead Event Handler System
 Distribution: development
-Depends: java-runtime-headless, virtual-mysql-server, arrowhead-core-common, arrowhead-serviceregistry-sql
+Depends: java-runtime-headless, virtual-mysql-server, arrowhead-common, arrowhead-serviceregistry-sql
