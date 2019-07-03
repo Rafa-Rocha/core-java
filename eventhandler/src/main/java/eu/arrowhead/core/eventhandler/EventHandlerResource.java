@@ -48,59 +48,6 @@ public class EventHandlerResource {
     return "This is the Event Handler Arrowhead Core System.";
   }
 
-  /*@POST
-  @Path("publish")
-  public Response publishEvent(@Valid PublishEvent eventPublished, @Context ContainerRequestContext requestContext) {
-    if (eventPublished.getEvent().getTimestamp() == null) {
-      eventPublished.getEvent().setTimestamp(ZonedDateTime.now());
-    }
-    if (EventHandlerMain.EVENT_PUBLISHING_TOLERANCE > 0) {
-      if (eventPublished.getEvent().getTimestamp().isBefore(ZonedDateTime.now().minusMinutes(EventHandlerMain.EVENT_PUBLISHING_TOLERANCE))) {
-        throw new BadPayloadException(
-            "This event is too old to publish. Maximum allowed delay before publishing the event: " + EventHandlerMain.EVENT_PUBLISHING_TOLERANCE);
-      }
-      if (eventPublished.getEvent().getTimestamp().isAfter(ZonedDateTime.now().plusMinutes(EventHandlerMain.EVENT_PUBLISHING_TOLERANCE))) {
-        throw new BadPayloadException(
-            "This event is too far in the future. Maximum allowed timestamp tolerance for events: " + EventHandlerMain.EVENT_PUBLISHING_TOLERANCE);
-      }
-    }
-    boolean isSecure = requestContext.getSecurityContext().isSecure();
-
-    /* First the event will be propagated to consumers, then the results will be sent back to the publisher, summarizing which consumers received the
-       event without an error. */
-    /*CompletableFuture.supplyAsync(() -> EventHandlerService.propagateEvent(eventPublished)).thenAccept(map -> {
-      if (eventPublished.getDeliveryCompleteUri() != null) {
-        String callbackUrl = Utility
-            .getUri(eventPublished.getSource().getAddress(), eventPublished.getSource().getPort(), eventPublished.getDeliveryCompleteUri(), isSecure,
-                    false);
-        try {
-          Utility.sendRequest(callbackUrl, "POST", map);
-        } catch (RuntimeException e) {
-          log.error("Callback after event publishing failed at: " + callbackUrl);
-          e.printStackTrace();
-        }
-      }
-    });*/
-
-    //return OK while the event publishing happens in async
-    /*return Response.status(Status.OK).build();
-  }*/
-
-  /*
-  @POST
-  @Path("subscription")
-  public Response subscribe(@Valid EventFilter filter) {
-    EventFilter savedFilter = EventHandlerService.saveEventFilter(filter);
-    if (savedFilter != null) {
-      log.info("EventFilter was saved.");
-      return Response.status(Status.CREATED.getStatusCode()).entity(savedFilter).build();
-    } else {
-      log.info("EventFilter was already in the database, nothing happened.");
-      return Response.status(Status.NO_CONTENT.getStatusCode()).build();
-    }
-  }
-  */
-
   @DELETE
   @Path("subscription/type/{eventType}/consumer/{consumerName}")
   public Response unsubscribe(@PathParam("eventType") String eventType, @PathParam("consumerName") String consumerName) {
@@ -131,9 +78,7 @@ public class EventHandlerResource {
   @POST
   @Path("publish")
   public Response publishEvent(@Valid PublishEvent eventPublished, @Context ContainerRequestContext requestContext) {
-    System.out.println("Received message " + eventPublished.getEvent().getPayload() + " at " + ZonedDateTime.now().toInstant().toEpochMilli());
-	 
-	if (eventPublished.getEvent().getTimestamp() == null) {
+    if (eventPublished.getEvent().getTimestamp() == null) {
       eventPublished.getEvent().setTimestamp(ZonedDateTime.now());
     }
     if (EventHandlerMain.EVENT_PUBLISHING_TOLERANCE > 0) {

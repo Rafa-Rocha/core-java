@@ -39,7 +39,6 @@ final class EventHandlerService {
   private static final DatabaseManager dm = DatabaseManager.getInstance();
   private static final HashMap<String, Object> restrictionMap = new HashMap<>();
   private static final Map<String, SseBroadcaster> SSE_BROADCASTERS = new ConcurrentHashMap<>();
-  //private static SseBroadcaster broadcaster = new SseBroadcaster();
   
   private static List<EventFilter> getMatchingEventFilters(PublishEvent pe) {
     restrictionMap.clear();
@@ -95,11 +94,6 @@ final class EventHandlerService {
     return result;
   }
   
-  /*
-  static void addSubscription(EventOutput eventOutput) {
-	  broadcaster.add(eventOutput);
-  }
-  */
   static void addSubscription(String eventType, EventOutput eventOutput) {
 	  // register event type if new
 	  if (!SSE_BROADCASTERS.containsKey(eventType)) {
@@ -114,7 +108,6 @@ final class EventHandlerService {
 	  OutboundEvent event = buildEvent(eventPublished);
 	  //broadcaster.broadcast(event);
 	  if (SSE_BROADCASTERS.containsKey(eventPublished.getEvent().getType())) {
-		  System.out.println("Going to send message " + eventPublished.getEvent().getPayload() + " at " + ZonedDateTime.now().toInstant().toEpochMilli());
 		  SSE_BROADCASTERS.get(eventPublished.getEvent().getType()).broadcast(event);
 	  }
   }

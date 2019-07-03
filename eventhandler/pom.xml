@@ -36,6 +36,10 @@
       <artifactId>arrowhead-core-common</artifactId>
     </dependency>
 
+    <dependency>
+    	<groupId>org.glassfish.jersey.media</groupId>
+    	<artifactId>jersey-media-sse</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -165,6 +169,12 @@
                     <prefix>/etc/systemd/system</prefix>
                     <filemode>664</filemode>
                   </mapper>
+                </data>
+
+                <data>
+                  <type>file</type>
+                  <src>${project.basedir}/src/deb/create_event_handler_db_empty.sql</src>
+                  <dst>/usr/share/arrowhead/db/create_event_handler_db_empty.sql</dst>
                 </data>
 
               </dataSet>
